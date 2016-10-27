@@ -1,6 +1,6 @@
-import numpy as np, pandas as pd
+import numpy as np, pandas as pd, scipy.stats as ss
 
-def compareTwoRegSlopes(x1, y1, x2, y2, alpha=0.05, tail_type="left"):
+def compareTwoRegSlopes(x1, y1, x2, y2, alpha=0.05, tail_type="both"):
     """ Performs a simple linear regression of y1 vs. x1 and y2 vs. x2
     and then does a test as to whether the difference in the slopes are
     significant.
@@ -18,7 +18,7 @@ def compareTwoRegSlopes(x1, y1, x2, y2, alpha=0.05, tail_type="left"):
     tail_type - string: describes the kind of test to perform.
                 acceptable values: "left", "right", "both"
     
-    Returns a dictionary with the following keys:
+    Returns a dictionary with the following keys and their assoc'd values:
     n1 - The number of (x1, y1) pairs.
     n2 - The number of (x2, y2) pairs
     w0_1 - Value of the intercept for the simple linear regression y1 vs. x1
@@ -31,11 +31,11 @@ def compareTwoRegSlopes(x1, y1, x2, y2, alpha=0.05, tail_type="left"):
     sy2 - Std deviation of the y2 array.
     r2_1 - Coefficient of determination for y1 vs. x1 linear regression
     r2_2 - Coefficient of determination for y2 vs. x2 linear regression
-    syx_1 - Std error of the estimate for y1 vs. x1 linear regression
-    syx_2 - Std error of the estimate for y2 vs. x2 linear regression
+    syx1 - Std error of the estimate for y1 vs. x1 linear regression
+    syx2 - Std error of the estimate for y2 vs. x2 linear regression
     sw1_1 - Std deviation of slope estimate for y1 vs. x1 linear regression
     sw1_2 - Std deviation of slope estimate for y1 vs. x1 linear regression
-    s_slope_diff - Std error of difference in the slopes (w_1 - w1_2)
+    s_slope_diff - Std error of difference in the slopes (w1_1 - w1_2)
     t_stat - t statistic for the dual slope test
     df - degrees of freedom for the slope test = n1 - n2 - 4
     p_val - 
@@ -51,34 +51,31 @@ def compareTwoRegSlopes(x1, y1, x2, y2, alpha=0.05, tail_type="left"):
     result['w0_2'] = trainLinear(x2, y2)[0][0]
     result['w1_1'] = trainLinear(x1, y1)[1][0]
     result['w1_2'] = trainLinear(x2, y2)[1][0]
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
-    # result[''] = 
+    result['sx1'] = np.std(x1, ddof=1)
+    result['sx2'] = np.std(x2, ddof=1)
+    result['sy1'] = np.std(y1, ddof=1)
+    result['sy2'] = np.std(y2, ddof=1)
+    result['r2_1'] = np.corrcoef(x1.T, y1.T)[1][0]**2
+    result['r2_2'] = np.corrcoef(x2.T, y2.T)[1][0]**2
+    result['syx1'] = result['sy1'] * np.sqrt((1-result['r2_1'])*
+                     (result['n1']-1)/(result['n1']-2))
+    result['syx2'] = result['sy2'] * np.sqrt((1-result['r2_2'])*
+                     (result['n2']-1)/(result['n2']-2))
+    result['sw1_1'] = result['syx1'] / \
+                      (result['sx1'] * np.sqrt(result['n1']-1))
+    result['sw1_2'] = result['syx2'] / \
+                      (result['sx2'] * np.sqrt(result['n2']-1))
+    result['s_slope_diff'] = np.sqrt(result['sw1_1']**2 + result['sw1_2']**2)
+    result['t_stat'] = (result['w1_1'] - result['w1_2']) / \
+                       result['s_slope_diff']
+    result['df'] = result['n1'] + result['n2'] - 4
+    if tail_type == 'right':
+        result['p_val'] = 1 - ss.t.cdf(abs(result['t_stat'], result['df']))
+    else:
+        result['p_val'] = ss.t.cdf(result['t_stat'], result['df'])
+        if tail_type == 'both':
+            result['p_val'] += result['p_val']
+        result['sig'] = (result['p_val'] <= alpha)
     
     return result
     
@@ -119,7 +116,5 @@ def useLinear(x, w, transpose_weights=False):
         return np.dot(x1, w.T)
     else:
         return np.dot(x1, w)
-    
-#test_slopes = ri.compareTwoRegSlopes(dat['x1'], dat['y1'], dat['x2'], dat['y2'])
 
-if __name__ == '__main__': main()
+#if __name__ == '__main__': main()
